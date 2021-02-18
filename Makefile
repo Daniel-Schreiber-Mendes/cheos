@@ -7,12 +7,12 @@ asm_obj_files := $(asm_src_files:.asm=.o)
 c_src_files := $(shell find . -name '*.c')
 c_obj_files := $(c_src_files:.c=.o)
 
-main.img: main.elf
+cheos.iso: cheos.elf
 	cp '$<' iso/boot
 	grub-mkrescue -o '$@' iso
 
-# main.elf is the multiboot file.
-main.elf: $(asm_obj_files) $(c_obj_files)
+# cheos.elf is the multiboot file.
+cheos.elf: $(asm_obj_files) $(c_obj_files)
 	ld -m elf_i386 -nostdlib -T linker.ld -o '$@' $^
 %.o : %.asm
 	nasm -f elf32 '$<' -o '$@'
@@ -21,10 +21,10 @@ main.elf: $(asm_obj_files) $(c_obj_files)
 	gcc -c -m32 -ffreestanding -fno-builtin -Os -o '$@' -Wno-int-conversion -Wall -Wextra '$<'
 	
 clean:
-	rm -f *.elf *.o iso/boot/*.elf *.img
+	rm -f *.elf *.o iso/boot/*.elf *.img *.iso
 
-run: main.img
+run: cheos.iso
 	qemu-system-i386 -hda '$<'
 	
-run-kernel: main.img
-	qemu-system-i386 -kernel '$<'
+run-kernel: cheos.iso
+	qemu-system-i386 '$<'
