@@ -1,30 +1,49 @@
 #include "terminal.h"
 
 
-static volatile char *videoadress = 0xb8000;
+static volatile C *videoadress = 0xb8000;
+static U8 color;
 
 
 void tml_init(void)
 {
-    tml_clear(TEXT);
-    tml_cursor_enable();
-    tml_cursor_setpos(0, 0);
+    cursor_clear(TEXT);
+    cursor_enable();
+    cursor_setpos_xy(0, 0);
 }
 
 
-void tml_print(char const *string, PrintMode mode)
+void print(C const *string)
 {
-    uint16_t i=0;
-    uint16_t pos = tml_cursor_getpos();
+    for (U16 i=0; string[i] != 0; ++i)
+    {
+        printc(string[i]);
+    }
+}
+
+
+void printf(C const *string)
+{
+    for (U16 i=0; string[i] != 0; ++i)
+    {
+        printc(string[i]);
+    }
+}
+
+
+void printr(C const *string, PrintMode mode)
+{
+    U16 i = 0;
+    U16 pos = cursor_getpos();
     switch (mode)
     {
-        case TEXT:
+        case TEXT: //write text into memory without affecting color
             while (string[i])
             {
-                videoadress[(i + pos) * 2] = string[i];
+                videoadress[i * 2 + pos * 2] = string[i];
                 ++i;
             }
-            tml_cursor_move(i);
+            cursor_move(i);
             break;
         case TEXT_COLOR:
             while (string[i])
@@ -32,61 +51,125 @@ void tml_print(char const *string, PrintMode mode)
                 videoadress[i + pos * 2] = string[i];
                 ++i;
             }
-            tml_cursor_move(i / 2);
+            cursor_move(i / 2);
             break;
         case COLOR:
+            while (string[i])
+            {
+                videoadress[i * 2 + pos * 2 + 1] = string[i];
+                ++i;
+            }
+            cursor_move(i);
             break;
     }
 }
 
 
-void tml_printc(char c)
+void printc(C c)
 {
-    videoadress[tml_cursor_getpos() * 2] = c;
-    tml_cursor_move(1);
+    if (c == '\n')
+    {
+        cursor_newline();
+    }
+    else
+    {
+        videoadress[cursor_getpos() * 2] = c;
+        if (color != 0)
+        {
+            videoadress[cursor_getpos() * 2 + 1] = color;
+        }
+        cursor_move(1);
+    }
 }
 
 
-void tml_printat(char const *string, PrintMode mode, unsigned char x, unsigned char y)
+void printat(C const *string, U8 x, U8 y)
 {
+    for (U16 i=0; string[i] != 0; ++i)
+    {
+        printcat(string[i], x, y);
+    }
+}
+
+
+void printfat(C const *string, U8 x, U8 y)
+{
+
+}
+
+void printrat(C const *string, PrintMode mode, U8 x, U8 y)
+{
+    U16 i = 0;
+    U16 pos = x + y * CONSOLE_ROW_SIZE;
     switch (mode)
     {
-        case TEXT:
-            for (unsigned short int i=0; string[i] != 0; ++i)
+        case TEXT: //write text into memory without affecting color
+            while (string[i])
             {
-                videoadress[x * 2 + y * CONSOLE_WIDTH + i * 2] = string[i];
+                videoadress[i * 2 + pos * 2] = string[i];
+                ++i;
             }
             break;
         case TEXT_COLOR:
-            for (unsigned short int i=0; string[i] != 0; ++i)
+            while (string[i])
             {
-                videoadress[x * 2 + y * CONSOLE_WIDTH + i] = string[i];
+                videoadress[i + pos] = string[i];
+                ++i;
             }
             break;
-       case COLOR:
+        case COLOR:
+            while (string[i])
+            {
+                videoadress[i * 2 + pos + 1] = string[i];
+                ++i;
+            }
             break;
     }
 }
 
 
-void tml_clear(PrintMode mode)
+void printcat(C c, U8 x, U8 y)
+{
+    if (c == '\n')
+    {
+        cursor_newline();
+    }
+    else
+    {
+        videoadress[x * 2 + y * CONSOLE_ROW_SIZE * 2] = c;
+        if (color != 0)
+        {
+            videoadress[x * 2 + y * CONSOLE_ROW_SIZE * 2 + 1] = color;
+        }
+        cursor_move(1);
+    }
+}
+
+
+void set_print_color(U8 c)
+{
+    color = c;
+}
+
+
+void cursor_clear(PrintMode mode)
 {
     switch (mode)
     {
         case TEXT:
-            for (uint16_t i=0; i < CONSOLE_WIDTH * CONSOLE_HEIGHT; ++i)
+            for (U16 i=0; i < CONSOLE_ROW_SIZE * CONSOLE_HEIGHT; ++i)
             {
                 videoadress[i * 2] = 0;
             }
             break;
         case TEXT_COLOR:
-            for (uint16_t i=0; i < CONSOLE_WIDTH * CONSOLE_HEIGHT; ++i)
+            for (U16 i=0; i < CONSOLE_ROW_SIZE * CONSOLE_HEIGHT; ++i)
             {
                 videoadress[i] = 0;
             }
             break;
        case COLOR:
-            for (uint16_t i=0; i < CONSOLE_WIDTH * CONSOLE_HEIGHT; ++i)
+            for (U16 i=0; i < CONSOLE_ROW_SIZE * CONSOLE_HEIGHT; ++i)
             {
                 videoadress[i * 2 + 1] = 0;
             }
@@ -95,15 +178,22 @@ void tml_clear(PrintMode mode)
 }
 
 
-void tml_rmvc(void)
+void cursor_rmvc(void)
 {
-    tml_cursor_move(-1);
-    tml_printc(' ');
-    tml_cursor_move(-1);
+    cursor_move(-1);
+    printc(' ');
+    cursor_move(-1);
 }
 
 
-void tml_cursor_enable(void)
+void cursor_newline(void) //line advance
+{
+    U16 pos = cursor_getpos();
+    cursor_setpos(NEXT_MULTIPLE(pos, 80));
+}
+
+
+void cursor_enable(void)
 {
     outb(CURSOR_CTRL, CURSOR_SCANLINE_BEGIN_BYTE);
     outb(CURSOR_DATA,  LOWEST_SCANLINE); 
@@ -114,52 +204,52 @@ void tml_cursor_enable(void)
 	//outb(CURSOR_DATA, (inb(CURSOR_DATA) & 0xE0) | 15);
 }
 
-void tml_cursor_disable(void)
+void cursor_disable(void)
 {
 	outb(CURSOR_CTRL, CURSOR_ENABLED_BYTE);
 	outb(CURSOR_DATA, CURSOR_DISABLE);
 }
 
-void tml_cursor_setpos(uint8_t x, uint8_t y)
+void cursor_setpos_xy(U8 x, U8 y)
 {
-	uint16_t pos = y * CONSOLE_WIDTH + x;
- 
-	outb(CURSOR_CTRL, CURSOR_L_POS_BYTE);
-	outb(CURSOR_DATA, (uint8_t) (pos & 0xFF));
-	outb(CURSOR_CTRL, CURSOR_H_POS_BYTE);
-	outb(CURSOR_DATA, (uint8_t) ((pos >> 8) & 0xFF));
+    cursor_setpos(y * CONSOLE_ROW_SIZE + x);
 }
 
 
-uint16_t tml_cursor_getpos(void)
+void cursor_setpos(U16 pos)
 {
-    outb(CURSOR_CTRL, CURSOR_L_POS_BYTE);
-    uint16_t pos = inb(CURSOR_DATA);
-    outb(CURSOR_CTRL, CURSOR_H_POS_BYTE);
-    pos += ((uint16_t)inb(CURSOR_DATA)) << 8;
-    return pos; 
-}
-
-
-void tml_cursor_move(int16_t len)
-{
-    uint16_t pos = tml_cursor_getpos() + len;
-    if (pos > CONSOLE_WIDTH * CONSOLE_HEIGHT * 2)
+    if (pos > CONSOLE_WIDTH * CONSOLE_HEIGHT)
     {
         pos = 0;
     }
 	outb(CURSOR_CTRL, CURSOR_L_POS_BYTE);
-	outb(CURSOR_DATA, (uint8_t) (pos & 0xFF));
+	outb(CURSOR_DATA, (U8) (pos & 0xFF));
 	outb(CURSOR_CTRL, CURSOR_H_POS_BYTE);
-	outb(CURSOR_DATA, (uint8_t) ((pos >> 8) & 0xFF));
+	outb(CURSOR_DATA, (U8) ((pos >> 8) & 0xFF));
 }
 
 
-void tml_scroll(void)
+U16 cursor_getpos(void)
 {
-    for (uint16_t i=0; i < CONSOLE_WIDTH / 2 * CONSOLE_HEIGHT; i++)
+    outb(CURSOR_CTRL, CURSOR_L_POS_BYTE);
+    U16 pos = inb(CURSOR_DATA);
+    outb(CURSOR_CTRL, CURSOR_H_POS_BYTE);
+    pos += ((U16)inb(CURSOR_DATA)) << 8;
+    return pos; 
+}
+
+
+void cursor_move(I16 len)
+{
+    cursor_setpos(cursor_getpos() + len);
+}
+
+
+void cursor_scroll(void)
+{
+    for (U16 i=0; i < CONSOLE_ROW_SIZE / 2 * CONSOLE_HEIGHT; i++)
     {
-        ((uint16_t*)videoadress)[i] = ((uint16_t*)videoadress)[i + CONSOLE_WIDTH / 2];
+        ((U16*)videoadress)[i] = ((U16*)videoadress)[i + CONSOLE_ROW_SIZE / 2];
     }
-    tml_cursor_move(-CONSOLE_WIDTH / 2);
+    cursor_move(-CONSOLE_ROW_SIZE / 2);
 }

@@ -22,16 +22,15 @@ STACKSIZE equ 0x4000
 
 loader:
   mov esp, stack+STACKSIZE
-  push eax
-  push ebx
-
-  call main
-
+  ;push multiboot header
+  push eax ; push header magic
+  push ebx ; push header pointer
+  
   cli ;clear interrupt flag
 
-hang:
+  call main
   hlt
-  jmp hang
+  
 
 section .bss
 align 4

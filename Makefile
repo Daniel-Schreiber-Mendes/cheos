@@ -18,7 +18,7 @@ cheos.elf: $(asm_obj_files) $(c_obj_files)
 	nasm -f elf32 '$<' -o '$@'
 	
 %.o : %.c
-	gcc -c -m32 -ffreestanding -fno-builtin -Os -o '$@' -Wno-int-conversion -Wall -Wextra '$<'
+	gcc -c -m32 -ffreestanding -fno-builtin -Os -o '$@' -Wno-int-conversion -Wall -Wextra -Wno-pointer-sign '$<' -Iinclude
 	
 clean:
 	rm -f *.elf *.o iso/boot/*.elf *.img *.iso
