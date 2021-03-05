@@ -7,12 +7,16 @@ typedef unsigned short U16;
 typedef unsigned int U32;
 typedef unsigned long long int U64;
 
-typedef U8 C;
+typedef U8 C; //char
+typedef void V; //void
+typedef U8 B; //bool
 
 typedef char I8;
 typedef short I16;
 typedef int I32;
 typedef long long int I64;
+
+#define NULL (V*) 0
 
 
 STATIC_ASSERT(__CHAR_BIT__ == 8, U8_is_8_bits)

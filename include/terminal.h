@@ -48,6 +48,7 @@ void cursor_disable(void);
 void cursor_setpos_xy(U8 x, U8 y);
 void cursor_setpos(U16 pos);
 U16  cursor_getpos(void);
+U16  cursor_getposr(void);
 void cursor_move(I16 len);
 void cursor_scroll(void);
 

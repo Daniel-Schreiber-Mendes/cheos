@@ -3,6 +3,7 @@
 
 static volatile C *videoadress = 0xb8000;
 static U8 color;
+static U16 cursor_pos;
 
 
 void tml_init(void)
@@ -10,6 +11,8 @@ void tml_init(void)
     cursor_clear(TEXT);
     cursor_enable();
     cursor_setpos_xy(0, 0);
+    set_print_color(2);
+    print("Terminal initialized\n");
 }
 
 
@@ -33,31 +36,28 @@ void printf(C const *string)
 
 void printr(C const *string, PrintMode mode)
 {
+    U16 pos = cursor_pos;
     U16 i = 0;
-    U16 pos = cursor_getpos();
     switch (mode)
     {
         case TEXT: //write text into memory without affecting color
-            while (string[i])
+            for (; string[i]; ++i)
             {
                 videoadress[i * 2 + pos * 2] = string[i];
-                ++i;
             }
             cursor_move(i);
             break;
         case TEXT_COLOR:
-            while (string[i])
+            for (; string[i]; ++i)
             {
                 videoadress[i + pos * 2] = string[i];
-                ++i;
             }
             cursor_move(i / 2);
             break;
         case COLOR:
-            while (string[i])
+            for (; string[i]; ++i)
             {
                 videoadress[i * 2 + pos * 2 + 1] = string[i];
-                ++i;
             }
             cursor_move(i);
             break;
@@ -73,10 +73,10 @@ void printc(C c)
     }
     else
     {
-        videoadress[cursor_getpos() * 2] = c;
+        videoadress[cursor_pos * 2] = c;
         if (color != 0)
         {
-            videoadress[cursor_getpos() * 2 + 1] = color;
+            videoadress[cursor_pos * 2 + 1] = color;
         }
         cursor_move(1);
     }
@@ -99,29 +99,25 @@ void printfat(C const *string, U8 x, U8 y)
 
 void printrat(C const *string, PrintMode mode, U8 x, U8 y)
 {
-    U16 i = 0;
     U16 pos = x + y * CONSOLE_ROW_SIZE;
     switch (mode)
     {
         case TEXT: //write text into memory without affecting color
-            while (string[i])
+            for (U16 i=0; string[i]; ++i)
             {
                 videoadress[i * 2 + pos * 2] = string[i];
-                ++i;
             }
             break;
         case TEXT_COLOR:
-            while (string[i])
+            for (U16 i=0; string[i]; ++i)
             {
                 videoadress[i + pos] = string[i];
-                ++i;
             }
             break;
         case COLOR:
-            while (string[i])
+            for (U16 i=0; string[i]; ++i)
             {
                 videoadress[i * 2 + pos + 1] = string[i];
-                ++i;
             }
             break;
     }
@@ -188,8 +184,7 @@ void cursor_rmvc(void)
 
 void cursor_newline(void) //line advance
 {
-    U16 pos = cursor_getpos();
-    cursor_setpos(NEXT_MULTIPLE(pos, 80));
+    cursor_setpos(NEXT_MULTIPLE(cursor_pos, 80));
 }
 
 
@@ -222,15 +217,25 @@ void cursor_setpos(U16 pos)
     {
         pos = 0;
     }
+
 	outb(CURSOR_CTRL, CURSOR_L_POS_BYTE);
 	outb(CURSOR_DATA, (U8) (pos & 0xFF));
 	outb(CURSOR_CTRL, CURSOR_H_POS_BYTE);
 	outb(CURSOR_DATA, (U8) ((pos >> 8) & 0xFF));
+
+    cursor_pos = pos;
 }
 
 
 U16 cursor_getpos(void)
 {
+    return cursor_pos; 
+}
+
+
+U16 cursor_getposr(void)
+{
+    //read position directly from memory where cursor pos is defined. used only if for some reason cursor position gets changed from outside or for debugging
     outb(CURSOR_CTRL, CURSOR_L_POS_BYTE);
     U16 pos = inb(CURSOR_DATA);
     outb(CURSOR_CTRL, CURSOR_H_POS_BYTE);
@@ -241,7 +246,7 @@ U16 cursor_getpos(void)
 
 void cursor_move(I16 len)
 {
-    cursor_setpos(cursor_getpos() + len);
+    cursor_setpos(cursor_pos + len);
 }
 
 
