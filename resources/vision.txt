@@ -1,4 +1,0 @@
-No piping, load full files when compiling
-no virtual memory
-no file protection
-no linker, no make
